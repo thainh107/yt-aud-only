@@ -38,7 +38,7 @@ function tickerInterval(action) {
 			progressBar.value = audio.currentTime;
 			let time = Math.floor(audio.currentTime);
 			document.getElementById("currentTime").textContent = convertTime(time);
-			if (Math.floor(audio.currentTime) % 20 == 0) {
+			if (time > 0 && time % 20 == 0) {
 				nowPlaying.time = time;
 				localStorage.setItem("nowPlaying", JSON.stringify(nowPlaying));
 			}
@@ -64,11 +64,12 @@ function checkThumbnail(url) {
 		});
 }
 
-function playSong(url) {
+function playSong(url, time) {
 	// only swap the source url instead of creating a whole new thing
 	tickerInterval("clear");
 	audio.pause();
 	audio.src = url;
+	audio.currentTime = time;
 	if (audio.src) {
 		// skip button visibility
 		for (const entry of document.getElementById("playlistChannel").rows) {
@@ -106,7 +107,6 @@ function playSong(url) {
 		audio.oncanplay = () => {
 			audio.play();
 			tickerInterval("set");
-
 			document.getElementById("currentTime").textContent = convertTime(
 				Math.floor(audio.currentTime)
 			);
@@ -163,7 +163,7 @@ function skipSong(direction) {
 	}
 }
 
-function getSongOnList(songURL) {
+function getSongOnList(songURL, curTime) {
 	function denied() {
 		document.getElementById("urlInput").disabled = true;
 		document.getElementById("submitButton").disabled = true;
@@ -179,9 +179,10 @@ function getSongOnList(songURL) {
 		.then((json) => {
 			data[json.directURL] = json.data;
 			if (json.directURL !== audio.src) {
-				playSong(json.directURL);
 				nowPlaying.id = songURL;
+				nowPlaying.time = curTime;
 				localStorage.setItem("nowPlaying", JSON.stringify(nowPlaying));
+				playSong(json.directURL, curTime);
 			}
 		})
 		.catch((err) => {
@@ -233,7 +234,7 @@ function onAddItem(element) {
 	cell1.textContent = `${element.title} – (${element.duration})`;
 
 	cell1.addEventListener("click", () => {
-		if (element.id !== audio.src) getSongOnList(element.id);
+		if (element.id !== audio.src) getSongOnList(element.id, 0);
 	});
 	cell1.style.textAlign = "justify";
 	cell1.style.cursor = "pointer";
@@ -268,6 +269,12 @@ window.onload = async () => {
 		e.preventDefault();
 		getPlaylistChannel();
 	};
+	if (localStorage.getItem("nowPlaying")) {
+		let nowPlaying = JSON.parse(localStorage.getItem("nowPlaying"));
+		if (nowPlaying.id) {
+			getSongOnList(nowPlaying.id, nowPlaying.time);
+		}
+	}
 
 	playButton = document.getElementById("playButton");
 	playButton.addEventListener("click", () => {
@@ -367,8 +374,10 @@ window.onload = async () => {
 	progressBar = document.getElementById("progressBar");
 	progressBar.addEventListener("click", (e) => {
 		const percentage = parseFloat(e.offsetX / progressBar.offsetWidth);
-		audio.currentTime = percentage * audio.duration;
-		console.log("Tictictic" + percentage * audio.duration);
+		nowPlaying.time = audio.currentTime = Math.floor(
+			percentage * audio.duration
+		);
+		localStorage.setItem("nowPlaying", JSON.stringify(nowPlaying));
 	});
 
 	progressBar.addEventListener("mousemove", (e) => {
