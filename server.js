@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const http = require("http");
 const url = require("url");
 const ytdl = require("ytdl-core");
+const ytpl = require('ytpl');
 
 const app = express();
 const port = process.env.PORT || 4522;
@@ -59,10 +60,29 @@ app.get("/api/get", async (req, res, next) => {
 		next(err);
 		return;
 	}
-
 	res.json({
 		data: data,
 		directURL: filterURL
+	});
+});
+
+app.get("/api/getlist", async (req, res, next) => {
+	let listId;
+	let playlist;
+
+	try {
+		listId = req.query.listId || "";
+		
+		if (listId) {
+			playlist = await ytpl(listId);
+		}
+	} catch (err) {
+		next(err);
+		return;
+	}
+
+	res.json({
+		list: playlist
 	});
 });
 

@@ -18,6 +18,10 @@ let getURL;
 let shuffle;
 let randomNumber;
 let found;
+let nowPlaying = {
+	id: "",
+	time: 0
+};
 
 function convertTime(sec) {
 	// converts seconds into mm:ss and adds leading 0s when necessary
@@ -32,9 +36,12 @@ function tickerInterval(action) {
 	if (action === "set") {
 		interval = setInterval(() => {
 			progressBar.value = audio.currentTime;
-			document.getElementById("currentTime").textContent = convertTime(
-				Math.floor(audio.currentTime)
-			);
+			let time = Math.floor(audio.currentTime);
+			document.getElementById("currentTime").textContent = convertTime(time);
+			if (Math.floor(audio.currentTime) % 20 == 0) {
+				nowPlaying.time = time;
+				localStorage.setItem("nowPlaying", JSON.stringify(nowPlaying));
+			}
 		}, 500);
 	} else if (action === "clear") {
 		clearInterval(interval);
@@ -64,7 +71,7 @@ function playSong(url) {
 	audio.src = url;
 	if (audio.src) {
 		// skip button visibility
-		for (const entry of document.getElementById("playlist").rows) {
+		for (const entry of document.getElementById("playlistChannel").rows) {
 			if (entry.id === audio.src && !entry.nextElementSibling) {
 				skipNextButton.style.visibility = "hidden";
 			} else if (entry.id === audio.src && entry.nextElementSibling) {
@@ -113,8 +120,7 @@ function playSong(url) {
 				"nowPlaying"
 			).textContent = `${data[url].videoDetails.title} – ${data[url].videoDetails.author.name}`;
 
-			document.title =
-				data[url].videoDetails.title + " – The YouTube Audio Player";
+			document.title = data[url].videoDetails.title + " – YT Audio Player";
 			document.getElementById("thumbnail").style.visibility = "visible";
 			document.getElementById("controls").style.visibility = "visible";
 			progressBar.style.visibility = "visible";
@@ -128,17 +134,20 @@ function skipSong(direction) {
 	if (shuffle) {
 		do {
 			randomNumber = Math.floor(
-				Math.random() * document.getElementById("playlist").rows.length
+				Math.random() * document.getElementById("playlistChannel").rows.length
 			);
 			if (
-				document.getElementById("playlist").rows[randomNumber].id !== audio.src
+				document.getElementById("playlistChannel").rows[randomNumber].id !==
+				audio.src
 			) {
-				playSong(document.getElementById("playlist").rows[randomNumber].id);
+				playSong(
+					document.getElementById("playlistChannel").rows[randomNumber].id
+				);
 				found = true;
 			} else found = false;
 		} while (!found);
 	} else {
-		for (const entry of document.getElementById("playlist").rows) {
+		for (const entry of document.getElementById("playlistChannel").rows) {
 			if (direction === "fwd") {
 				if (entry.id === audio.src && entry.nextElementSibling) {
 					playSong(entry.nextElementSibling.id);
@@ -154,9 +163,7 @@ function skipSong(direction) {
 	}
 }
 
-function addSong(url) {
-	let songURL;
-
+function getSongOnList(songURL) {
 	function denied() {
 		document.getElementById("urlInput").disabled = true;
 		document.getElementById("submitButton").disabled = true;
@@ -167,86 +174,89 @@ function addSong(url) {
 			document.getElementById("submitButton").value = "check";
 		}, 1000);
 	}
-
-	try {
-		if (url) songURL = url;
-		else {
-			songURL = new URL(document.getElementById("urlInput").value);
-			if (songURL.hostname.includes("youtube.com")) {
-				songURL = songURL.searchParams.get("v");
-			} else if (songURL.hostname.includes("youtu.be")) {
-				songURL = songURL.pathname.slice(1, songURL.pathname.length);
-			} else throw new Error("wrong URL");
-			if (!url && entries.includes(songURL))
-				throw new Error("URL already in the list");
-		}
-	} catch (err) {
-		denied();
-		throw err;
-	}
-
-	document.getElementById("submitButton").value = "arrow_downward";
-	document.getElementById("urlInput").disabled = true;
-	document.getElementById("submitButton").disabled = true;
 	return fetch("api/get?url=" + songURL)
 		.then((res) => res.ok && res.json())
 		.then((json) => {
-			if (!json) throw new Error("no data");
-			const entry = document.getElementById("playlist").insertRow(-1); // this whole table is just my way of making an ordered list that isn't terrible
-			entry.id = json.directURL; // assign direct url to this cell
-
-			const cell0 = entry.insertCell(0);
-			cell0.className = "playlistIndex"; // counter in css
-			const timeStamp = convertTime(json.data.videoDetails.lengthSeconds);
-
-			const cell1 = entry.insertCell(1);
-			cell1.id = songURL; // assign video id to this cell
-			cell1.textContent = `${json.data.videoDetails.title} – ${json.data.videoDetails.author.name} (${timeStamp})`;
-			cell1.addEventListener("click", () => {
-				if (json.directURL !== audio.src) playSong(json.directURL);
-			});
-			cell1.style.textAlign = "justify";
-			cell1.style.cursor = "pointer";
-
-			const deleteButton = document.createElement("i");
-			deleteButton.classList.add("material-icons", "deleteButton");
-			deleteButton.textContent = "cancel";
-			deleteButton.style.cursor = "pointer";
-			deleteButton.style.visibility = "hidden";
-			deleteButton.addEventListener("click", (e) => {
-				entries.splice(e.target.parentNode.previousElementSibling.id, 1); // id of the cell to the left which contains the video id
-				localStorage.setItem("entries", JSON.stringify(entries));
-				delete data[e.target.parentNode.parentNode.id];
-				document
-					.getElementById("playlist")
-					.deleteRow(e.target.parentNode.parentNode.rowIndex);
-				if (document.getElementById("playlist").rows.length < 2)
-					playlistDeleteButton.style.visibility = "hidden";
-			});
-
-			const cell2 = entry.insertCell(2);
-			cell2.appendChild(deleteButton);
-
-			entries.push(songURL);
-			if (document.getElementById("playlist").rows.length > 1)
-				playlistDeleteButton.style.visibility = "visible";
-			localStorage.setItem("entries", JSON.stringify(entries));
 			data[json.directURL] = json.data;
-			if (!url) document.getElementById("urlInput").value = "";
-			document.getElementById("urlInput").disabled = false;
-			document.getElementById("submitButton").disabled = false;
-			document.getElementById("submitButton").value = "check";
-			if (
-				document.getElementById("playlist").rows.length < 2 &&
-				!url &&
-				!audio.src
-			)
+			if (json.directURL !== audio.src) {
 				playSong(json.directURL);
+				nowPlaying.id = songURL;
+				localStorage.setItem("nowPlaying", JSON.stringify(nowPlaying));
+			}
 		})
 		.catch((err) => {
 			denied();
 			throw err;
 		});
+}
+
+function getPlaylistChannel(url) {
+	let urlInput;
+	try {
+		if (url) urlInput = url;
+		else {
+			urlInput = new URL(document.getElementById("urlInput").value);
+			listId = urlInput.searchParams.get("list");
+		}
+	} catch (err) {
+		throw err;
+	}
+
+	document.getElementById("submitButton").value = "arrow_downward";
+	document.getElementById("urlInput").disabled = true;
+	document.getElementById("urlInput").value = "";
+	document.getElementById("submitButton").disabled = true;
+	return fetch("api/getlist?listId=" + listId)
+		.then((res) => res.ok && res.json())
+		.then((json) => {
+			if (!json) throw new Error("no data");
+
+			localStorage.setItem("playlistChannel", JSON.stringify(json.list));
+			items = json.list.items;
+			items.forEach((element) => {
+				onAddItem(element);
+			});
+		})
+		.catch((err) => {
+			denied();
+			throw err;
+		});
+}
+
+function onAddItem(element) {
+	const entry = document.getElementById("playlistChannel").insertRow(-1);
+
+	const cell0 = entry.insertCell(0);
+	cell0.className = "playlistIndex"; // counter in css
+	const cell1 = entry.insertCell(1);
+	cell1.id = element.id; // assign video id to this cell
+	cell1.textContent = `${element.title} – (${element.duration})`;
+
+	cell1.addEventListener("click", () => {
+		if (element.id !== audio.src) getSongOnList(element.id);
+	});
+	cell1.style.textAlign = "justify";
+	cell1.style.cursor = "pointer";
+
+	const deleteButton = document.createElement("i");
+	deleteButton.classList.add("material-icons", "deleteButton");
+	deleteButton.textContent = "cancel";
+	deleteButton.style.cursor = "pointer";
+	deleteButton.style.visibility = "hidden";
+	deleteButton.addEventListener("click", (e) => {
+		delete data[e.target.parentNode.parentNode.id];
+		document
+			.getElementById("playlistChannel")
+			.deleteRow(e.target.parentNode.parentNode.rowIndex);
+	});
+
+	const cell2 = entry.insertCell(2);
+	cell2.appendChild(deleteButton);
+
+	if (document.getElementById("playlistChannel").rows.length < 2)
+		playlistDeleteButton.style.visibility = "hidden";
+	if (document.getElementById("playlistChannel").rows.length > 1)
+		playlistDeleteButton.style.visibility = "visible";
 }
 
 window.onload = async () => {
@@ -256,7 +266,7 @@ window.onload = async () => {
 	getURL = document.getElementById("getURL");
 	getURL.onsubmit = (e) => {
 		e.preventDefault();
-		addSong();
+		getPlaylistChannel();
 	};
 
 	playButton = document.getElementById("playButton");
@@ -346,8 +356,8 @@ window.onload = async () => {
 	playlistDeleteButton = document.getElementById("playlistDeleteButton");
 	playlistDeleteButton.style.cursor = "pointer";
 	playlistDeleteButton.addEventListener("click", () => {
-		document.title = "The YouTube Audio Player";
-		document.getElementById("playlist").innerHTML = "";
+		document.title = "YT Audio Player";
+		document.getElementById("playlistChannel").innerHTML = "";
 		entries = [];
 		data = {};
 		localStorage.removeItem("entries");
@@ -356,12 +366,13 @@ window.onload = async () => {
 
 	progressBar = document.getElementById("progressBar");
 	progressBar.addEventListener("click", (e) => {
-		const percentage = parseFloat((e.offsetX / progressBar.offsetWidth));
+		const percentage = parseFloat(e.offsetX / progressBar.offsetWidth);
 		audio.currentTime = percentage * audio.duration;
+		console.log("Tictictic" + percentage * audio.duration);
 	});
 
 	progressBar.addEventListener("mousemove", (e) => {
-		const percentage = parseFloat((e.offsetX / progressBar.offsetWidth));
+		const percentage = parseFloat(e.offsetX / progressBar.offsetWidth);
 		const previewTime = percentage * audio.duration;
 		document.getElementById("position").textContent = convertTime(
 			Math.floor(previewTime)
@@ -371,17 +382,17 @@ window.onload = async () => {
 	progressBar.addEventListener("mouseout", (e) => {
 		document.getElementById("position").textContent = "";
 	});
-	
 
-	if (localStorage.getItem("entries"))
-		for (const entry of JSON.parse(localStorage.getItem("entries")))
-			await addSong(entry);
+	if (localStorage.getItem("playlistChannel")) {
+		let data = JSON.parse(localStorage.getItem("playlistChannel")).items;
+		data.forEach((element) => onAddItem(element));
+	}
 
 	audio.addEventListener("ended", () => {
-		if (document.getElementById("playlist").rows.length > 1) {
+		if (document.getElementById("playlistChannel").rows.length > 1) {
 			skipSong("fwd");
 		} else {
-			document.title = "The YouTube Audio Player";
+			document.title = "YT Audio Player";
 			playButton.click();
 		}
 	});

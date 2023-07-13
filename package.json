@@ -2,9 +2,9 @@
 	"name": "yt-audio-player",
 	"description": "A YouTube audio-only player consisting of a Javascript frontend and Node.js backend.",
 	"author": {
-		"name": "54ac",
-		"email": "me@54ac.bio",
-		"url": "https://github.com/54ac"
+		"name": "",
+		"email": "",
+		"url": ""
 	},
 	"repository": "github:54ac/yt-audio-player",
 	"version": "0.3.1",
@@ -27,7 +27,8 @@
 	"dependencies": {
 		"express": "^4.17.1",
 		"helmet": "^7.0.0",
-		"ytdl-core": "^4.4.5"
+		"ytdl-core": "^4.4.5",
+		"ytpl": "^2.3.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.18.10",
