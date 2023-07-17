@@ -1,14 +1,5 @@
 {
 	"name": "yt-audio-player",
-	"description": "A YouTube audio-only player consisting of a Javascript frontend and Node.js backend.",
-	"author": {
-		"name": "",
-		"email": "",
-		"url": ""
-	},
-	"repository": "github:54ac/yt-audio-player",
-	"version": "0.3.1",
-	"private": true,
 	"browserslist": "defaults",
 	"nodemonConfig": {
 		"ignore": [

@@ -193,6 +193,7 @@ function getSongOnList(songURL, curTime) {
 
 function getPlaylistChannel(url) {
 	let urlInput;
+	let listId;
 	try {
 		if (url) urlInput = url;
 		else {
@@ -219,7 +220,6 @@ function getPlaylistChannel(url) {
 			});
 		})
 		.catch((err) => {
-			denied();
 			throw err;
 		});
 }
