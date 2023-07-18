@@ -1,21 +1,61 @@
-/* eslint-disable no-console */
-const express = require("express");
-const helmet = require("helmet");
+var express = require('express');
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
+
+const helmet = require('helmet');
 const http = require("http");
 const url = require("url");
 const ytdl = require("ytdl-core");
 const ytpl = require('ytpl');
 
-const app = express();
-const port = process.env.PORT || 4522;
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
 
-app.use(helmet());
+var app = express();
+app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      xDownloadOptions: false,
+    })
+  );
+
+var port = process.env.PORT || 3340;
+
+
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
 	console.error(err.stack);
 	res.status(418).send("oh no error");
 });
+
+app.get("/api/getlist", async (req, res, next) => {
+	let listId;
+	let playlist;
+
+	try {
+		listId = req.query.listId || "";
+		
+		if (listId) {
+			playlist = await ytpl(listId);
+		}
+	} catch (err) {
+		next(err);
+		return;
+	}
+
+	res.json({
+		list: playlist
+	});
+});
+
+
 
 app.get("/api/img", (req, res, next) => {
 	const imgURL = url.parse(req.query.url);
@@ -66,25 +106,6 @@ app.get("/api/get", async (req, res, next) => {
 	});
 });
 
-app.get("/api/getlist", async (req, res, next) => {
-	let listId;
-	let playlist;
-
-	try {
-		listId = req.query.listId || "";
-		
-		if (listId) {
-			playlist = await ytpl(listId);
-		}
-	} catch (err) {
-		next(err);
-		return;
-	}
-
-	res.json({
-		list: playlist
-	});
-});
 
 app.get("/*", (req, res) => {
 	res.status(403).send("absolutely not");
@@ -94,4 +115,10 @@ app.post("/*", (req, res) => {
 	res.status(403).send("absolutely not");
 });
 
-app.listen(port, "localhost", () => console.log(`listening on port ${port}`));
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+app.listen(port, function () {
+    console.log('Example app listening on port ' + port + '!');
+  });
+
+module.exports = app;

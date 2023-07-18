@@ -1,4 +1,4 @@
-import "./main.css";
+
 
 const audio = new Audio();
 let entries = [];
@@ -105,7 +105,7 @@ function playSong(url, time) {
 		duration = data[url].videoDetails.lengthSeconds; // audio.duration returns incorrect values
 
 		audio.oncanplay = () => {
-			audio.play();
+            audio.currentTime > 0 ? audio.pause() : audio.play();
 			tickerInterval("set");
 			document.getElementById("currentTime").textContent = convertTime(
 				Math.floor(audio.currentTime)
@@ -165,8 +165,6 @@ function skipSong(direction) {
 
 function getSongOnList(songURL, curTime) {
 	function denied() {
-		document.getElementById("urlInput").disabled = true;
-		document.getElementById("submitButton").disabled = true;
 		document.getElementById("submitButton").value = "cancel";
 		setTimeout(() => {
 			document.getElementById("urlInput").disabled = false;
@@ -194,6 +192,7 @@ function getSongOnList(songURL, curTime) {
 function getPlaylistChannel(url) {
 	let urlInput;
 	let listId;
+    let items;
 	try {
 		if (url) urlInput = url;
 		else {
@@ -205,9 +204,7 @@ function getPlaylistChannel(url) {
 	}
 
 	document.getElementById("submitButton").value = "arrow_downward";
-	document.getElementById("urlInput").disabled = true;
 	document.getElementById("urlInput").value = "";
-	document.getElementById("submitButton").disabled = true;
 	return fetch("api/getlist?listId=" + listId)
 		.then((res) => res.ok && res.json())
 		.then((json) => {
